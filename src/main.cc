@@ -45,16 +45,12 @@ void render() {
                 glutSolidCube(obj.size * 2.0f);
                 break;
             case ObjectType::Cylinder:
-                glPushMatrix();
                 glRotatef(-90.0f, 1.0f, 0.0f, 0.0f);
                 glutSolidCylinder(obj.size, obj.height, 20, 20);
-                glPopMatrix();
                 break;
             case ObjectType::Cone:
-                glPushMatrix();
                 glRotatef(-90.0f, 1.0f, 0.0f, 0.0f);
                 glutSolidCone(obj.size, obj.height, 20, 20);
-                glPopMatrix();
                 break;
             case ObjectType::Torus:
                 glutSolidTorus(obj.size * 0.5f, obj.size, 20, 20);
