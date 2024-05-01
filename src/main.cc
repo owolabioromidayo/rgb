@@ -1,26 +1,240 @@
 #include <GL/freeglut.h>
 // #include <GL/glut.h>
 #include <vector>
+#include <algorithm>
+#include <iostream>
 #include <cmath>
 #include <glm/glm.hpp>
 
-
 #include "render_utils.hpp"
-#include "types.hpp" 
-#include "object.hpp" 
-#include "physics.cc" 
+#include "types.hpp"
+#include "object.hpp"
+#include "physics.cc"
 
+////////////// FORCE GENERATOR
 
+class ForceGenerator
+{
+public:
+    virtual void updateForce(Object &object, float timestep) = 0;
+
+    bool operator==(ForceGenerator &fg)
+    {
+        return true;
+    };
+
+    bool operator==(const ForceGenerator &fg)
+    {
+        return true;
+    };
+};
+
+class Gravity : public ForceGenerator
+{
+protected:
+    float gravity; // gravity constant
+
+public:
+    // TODO: brush up on move semantics
+    Gravity(float gravity)
+    {
+        this->gravity = gravity;
+    }
+
+    void updateForce(Object &obj, float timestep)
+    {
+        obj.force += glm::vec3(0.0f, obj.mass * gravity, 0.0f);
+    }
+
+    // bool operator==(ForceGenerator &fg)
+    // {
+    //     return true; // this part is not important
+    // };
+};
+
+// TODO: ADD DAMPING FORCE (or just update vel )
+
+// can be reworked into general plane collision, floor for now
+class PlaneCollision : public ForceGenerator
+{
+protected:
+    float floorY;
+
+public:
+    // TODO: brush up on move semantics
+    PlaneCollision(float floorY)
+    {
+        this->floorY = floorY;
+    }
+
+    void updateForce(Object &obj, float timestep)
+    {
+
+        // Floor plane collision
+        switch (obj.type)
+        {
+        case ObjectType::Sphere:
+            if (obj.position.y - obj.size < floorY)
+            {
+                obj.position.y = floorY + obj.size;
+                obj.velocity.y = -obj.velocity.y * 0.8f; // Simple bounce with damping
+            }
+            break;
+        case ObjectType::Cube:
+            if (obj.position.y - obj.size / 2.0f < floorY)
+            {
+                obj.position.y = floorY + obj.size / 2.0f;
+                obj.velocity.y = -obj.velocity.y * 0.8f;
+            }
+            break;
+        case ObjectType::Cylinder:
+            if (obj.position.y - obj.height / 2.0f < floorY)
+            {
+                obj.position.y = floorY + obj.height / 2.0f;
+                obj.velocity.y = -obj.velocity.y * 0.8f;
+            }
+            break;
+        case ObjectType::Cone:
+            if (obj.position.y - obj.height / 2.0f < floorY)
+            {
+                obj.position.y = floorY + obj.height / 2.0f;
+                obj.velocity.y = -obj.velocity.y * 0.8f;
+            }
+            break;
+        case ObjectType::Torus:
+            if (obj.position.y - obj.size < floorY)
+            {
+                obj.position.y = floorY + obj.size;
+                obj.velocity.y = -obj.velocity.y * 0.8f;
+            }
+            break;
+        case ObjectType::Cuboid:
+            if (obj.position.y - obj.height / 2.0f < floorY)
+            {
+                obj.position.y = floorY + obj.height / 2.0f;
+                obj.velocity.y = -obj.velocity.y * 0.8f;
+            }
+            break;
+        }
+    }
+
+    bool operator==(ForceGenerator &fg)
+    {
+        return true; // this part is not important
+    };
+};
+
+class Propulsion : public ForceGenerator
+{
+protected:
+    float gravity;
+    float k;
+
+public:
+    Propulsion(float k, float gravity)
+    {
+        this->k = k;
+        this->gravity = gravity;
+    }
+    void updateForce(Object &obj, float timestep)
+    {
+
+        //  what would the force be?
+        // neglect gravity
+        // we dont have shifting mass so we cant actually do it
+        // we can try to make it inclined though
+        if (obj.velocity.y < 0)
+        {
+            obj.force += glm::vec3(0.0f, 0.0f, obj.mass * 1.1f);
+        }
+        else
+        {
+            obj.force += glm::vec3(obj.mass * 1.1f, 0.0f, 0.0f);
+        }
+        obj.force += glm::vec3(0.0f, obj.mass * -gravity * k, 0.0f);
+    }
+};
+
+struct ForceRegistration
+{
+    Object &object;
+    ForceGenerator &fg;
+
+    bool operator==(ForceRegistration &fr)
+    {
+        return object == fr.object && fg == fr.fg;
+    }
+
+    bool operator==(const ForceRegistration &fr)
+    {
+        return object == fr.object && fg == fr.fg;
+    }
+};
+
+typedef std::vector<ForceRegistration> Registry;
+
+class ForceRegistry
+{
+protected:
+    Registry registrations;
+
+public:
+    ForceRegistry()
+    {
+        // nothing
+    }
+    void add(Object &object, ForceGenerator &fg)
+    {
+        registrations.push_back(ForceRegistration{object, fg});
+    }
+
+    // TODO : fix static error asser problem on .erase(it)
+    //  void remove(Object &object, ForceGenerator &fg)
+    //  {
+    //      ForceRegistration f = ForceRegistration{object, fg};
+    //      auto it = std::find(registrations.begin(), registrations.end(), f);
+    //      if (it != registrations.end())
+    //          registrations.erase(it);
+    //      else
+    //          std::cerr << "Could not remove object \n";
+    //  }
+
+    void clear(Object &object, ForceGenerator &fg)
+    {
+        registrations.clear();
+    }
+
+    void updateForces(float duration)
+    {
+
+        // reset forces
+        for (auto &k : registrations)
+            k.object.force = glm::vec3(0.0f);
+
+        for (auto &k : registrations)
+            k.fg.updateForce(k.object, duration);
+    }
+};
+
+////////////
+
+const float timeStep = 1.0f / 60.0f;
 std::vector<Object> objects;
+ForceRegistry fr;
 
-void render() {
+auto grav = Gravity(-9.81f);
+auto fplane_force = PlaneCollision(0.0f);
+auto prop = Propulsion(1.03f, -9.81f);
+
+void render()
+{
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    gluLookAt(0, 5, 10, 0, 0, 0, 0, 1, 0);
+    // gluLookAt(0, 5, 10, 0, 0, 0, 0, 1, 0);
 
-    gluLookAt(0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0); // Set up the camera position
-    
+    gluLookAt(0.0, 0.0, 6.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0); // Set up the camera position
+
     // CAMERA UPDATE
     glRotatef(angleX, 1.0, 0.0, 0.0);
     glRotatef(angleY, 0.0, 1.0, 0.0);
@@ -30,37 +244,39 @@ void render() {
 
     renderFloorPlane(100.0f);
 
-    //TODO: work on better obj rendering (when the type gets updated) 
+    // TODO: work on better obj rendering (when the type gets updated)
     glColor3f(1.0f, 0.0f, 0.0f);
-    for (const auto& obj : objects) {
+    for (const auto &obj : objects)
+    {
 
-        glPushMatrix(); 
+        glPushMatrix();
         glTranslatef(obj.position.x, obj.position.y, obj.position.z);
 
-        switch (obj.type) {
-            case ObjectType::Sphere:
-                glutSolidSphere(obj.size, 20, 20);
-                break;
-            case ObjectType::Cube:
-                glutSolidCube(obj.size * 2.0f);
-                break;
-            case ObjectType::Cylinder:
-                glRotatef(-90.0f, 1.0f, 0.0f, 0.0f);
-                glutSolidCylinder(obj.size, obj.height, 20, 20);
-                break;
-            case ObjectType::Cone:
-                glRotatef(-90.0f, 1.0f, 0.0f, 0.0f);
-                glutSolidCone(obj.size, obj.height, 20, 20);
-                break;
-            case ObjectType::Torus:
-                glutSolidTorus(obj.size * 0.5f, obj.size, 20, 20);
-                break;
+        switch (obj.type)
+        {
+        case ObjectType::Sphere:
+            glutSolidSphere(obj.size, 20, 20);
+            break;
+        case ObjectType::Cube:
+            glutSolidCube(obj.size * 2.0f);
+            break;
+        case ObjectType::Cylinder:
+            glRotatef(-90.0f, 1.0f, 0.0f, 0.0f);
+            glutSolidCylinder(obj.size, obj.height, 20, 20);
+            break;
+        case ObjectType::Cone:
+            glRotatef(-90.0f, 1.0f, 0.0f, 0.0f);
+            glutSolidCone(obj.size, obj.height, 20, 20);
+            break;
+        case ObjectType::Torus:
+            glutSolidTorus(obj.size * 0.5f, obj.size, 20, 20);
+            break;
 
-            case ObjectType::Cuboid:
-                glScalef(obj.size, obj.height, obj.width);
-                glutSolidCube(1.0f);
-                break;
-    }
+        case ObjectType::Cuboid:
+            glScalef(obj.size, obj.height, obj.width);
+            glutSolidCube(1.0f);
+            break;
+        }
 
         glPopMatrix();
     }
@@ -71,13 +287,23 @@ void render() {
     glutSwapBuffers();
 }
 
-void loop(int value) {
-    updatePhysics(objects, 0.0f); // floorPlane is at y0 for now
+void loop(int value)
+{
+
+    // updatePhysics(objects, 0.0f); // floorPlane is at y0 for now
+    fr.updateForces(timeStep);
+
+    for (auto &obj : objects)
+    {
+        std::cout << obj.force.x << " " << obj.force.y << " " << obj.force.z << std::endl;
+        obj.updatePhysics(timeStep);
+    }
     glutPostRedisplay();
     glutTimerFunc(16, loop, 0);
 }
 
-void init() {
+void init()
+{
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glEnable(GL_DEPTH_TEST);
 
@@ -88,23 +314,28 @@ void init() {
     Object cuboid(glm::vec3(-22.0f, 0.0f, 0.0f), 1.0f, 2.0f, 4.0f, 6.0f, ObjectType::Cube);
 
     // sphere.setVelocity(glm::vec3(4.0, 0.0, 3.0));
-    cube.setVelocity(glm::vec3(10.0, 0.0, 0.0));
-    cuboid.setVelocity(glm::vec3(0.0f, 1.0f, 0.0f)); 
+    // cube.setVelocity(glm::vec3(10.0, 0.0, 0.0));
+    // cuboid.setVelocity(glm::vec3(0.0f, 1.0f, 0.0f));
 
-    cylinder.setAccel(glm::vec3(1.0f, 0.0f, 0.0f));
-    cube.setAccel(glm::vec3(-1.0f, 0.0f, 0.0f));
-    cuboid.setAccel(glm::vec3(1.0f, 0.0f, 0.0f));
-
+    // cylinder.setAccel(glm::vec3(0.0f, 0.0f, 0.0f));
+    // cube.setAccel(glm::vec3(0.0f, 0.0f, 0.0f));
+    // cuboid.setAccel(glm::vec3(0.0f, 0.0f, 0.0f));
 
     objects.push_back(sphere);
     objects.push_back(cube);
     objects.push_back(cuboid);
     objects.push_back(cylinder);
 
+    for (auto &obj : objects)
+    {
+        fr.add(obj, grav);
+        fr.add(obj, fplane_force);
+    }
+    fr.add(objects.at(0), prop);
 }
 
-
-int main(int argc, char** argv) {
+int main(int argc, char **argv)
+{
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
 
@@ -115,12 +346,11 @@ int main(int argc, char** argv) {
 
     glutDisplayFunc(render);
     glutReshapeFunc(reshape);
-    glutMotionFunc(motion); 
+    glutMotionFunc(motion);
     glutKeyboardFunc(keyboard);
     glutMouseFunc(mouseWheel);
 
     glutTimerFunc(0, loop, 0);
-
 
     init();
     glutMainLoop();
