@@ -2,6 +2,8 @@
 #define __OBJECT_HPP_
 
 #include <glm/glm.hpp>
+#include <memory>
+#include <type_traits>
 
 enum class ObjectType
 {
@@ -66,10 +68,10 @@ public:
            velocity == obj.velocity && acceleration == obj.acceleration;
   }
 
-  virtual bool operator==(Object &object)
-  {
-    return this->partialEq(object);
-  };
+  virtual bool operator==(Object &object) { return this->partialEq(object); };
+
+  template <typename T>
+  void ptr() { static_cast<T *>(this); }
 };
 
 class Sphere : public Object
@@ -78,8 +80,7 @@ public:
   float radius;
   Sphere(ObjectArgs object, float radius)
       : Object(object, ObjectType::Sphere), radius(radius){};
-  bool operator==(Object &obj)
-      override
+  bool operator==(Object &obj) override
   {
     Sphere &sph = static_cast<Sphere &>(obj);
     if (sph.partialEq(sph) && sph.radius == radius)
@@ -96,8 +97,7 @@ public:
   float size;
   Cube(ObjectArgs object, float size)
       : Object(object, ObjectType::Cube), size(size){};
-  bool operator==(Object &obj)
-      override
+  bool operator==(Object &obj) override
   {
     Cube &cub = static_cast<Cube &>(obj);
     if (cub.partialEq(cub) && cub.size == size)
@@ -115,8 +115,7 @@ public:
   float height;
   Cylinder(ObjectArgs object, float radius, float height)
       : Object(object, ObjectType::Cylinder), radius(radius), height(height){};
-  bool operator==(Object &obj)
-      override
+  bool operator==(Object &obj) override
   {
     Cylinder &cyl = static_cast<Cylinder &>(obj);
     if (cyl.partialEq(cyl) && cyl.radius == radius && cyl.height == height)
@@ -135,8 +134,7 @@ public:
   Cone(ObjectArgs object, float radius, float height)
       : Object(object, ObjectType::Cone), radius(radius), height(height){};
 
-  bool operator==(Object &obj)
-      override
+  bool operator==(Object &obj) override
   {
     Cone &con = static_cast<Cone &>(obj);
     if (con.partialEq(con) && con.radius == radius && con.height == height)
@@ -156,11 +154,11 @@ public:
       : Object(object, ObjectType::Torus), radius(radius),
         thickness(thickness){};
 
-  bool operator==(Object &obj)
-      override
+  bool operator==(Object &obj) override
   {
     Torus &tor = static_cast<Torus &>(obj);
-    if (tor.partialEq(tor) && tor.radius == radius && tor.thickness == thickness)
+    if (tor.partialEq(tor) && tor.radius == radius &&
+        tor.thickness == thickness)
     {
       return true;
     }
@@ -177,8 +175,7 @@ public:
   Cuboid(ObjectArgs object, float width, float height, float length)
       : Object(object, ObjectType::Cuboid), width(width), height(height),
         length(length){};
-  bool operator==(Object &obj)
-      override
+  bool operator==(Object &obj) override
   {
     Cuboid &cuboid = static_cast<Cuboid &>(obj);
     if (cuboid.partialEq(cuboid) && cuboid.width == width &&
@@ -189,6 +186,12 @@ public:
     return false;
   }
 };
+
+template <typename T, typename = std::enable_if_t<std::is_base_of_v<Object, T>>>
+T *objectPtrTo(std::unique_ptr<Object> &ptr)
+{
+  return static_cast<T *>(ptr.get());
+}
 
 // void load_obj(const char* filename, vector<glm::vec4> &vertices,
 // vector<glm::vec3> &normals, vector<GLushort> &elements)
