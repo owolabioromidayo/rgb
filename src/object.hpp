@@ -56,6 +56,11 @@ public:
 
   void applyForce(const glm::vec3 &f) { this->force += f; }
 
+  bool hasFiniteMass()
+  {
+    return 0.0f < this->mass < 100000.0f;
+  }
+
   void updatePhysics(float timeStep)
   {
     acceleration = force / mass;

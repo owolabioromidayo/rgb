@@ -1,3 +1,6 @@
+#ifndef __ENVIRONMENT_HPP_
+#define __ENVIRONMENT_HPP_
+
 #include "object.hpp"
 #include <memory>
 #include <type_traits>
@@ -16,3 +19,6 @@ public:
 };
 
 typedef std::vector<std::unique_ptr<Object>> ObjectList;
+
+
+#endif //__ENVIRONMENT_HPP_
