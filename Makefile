@@ -2,7 +2,7 @@
 
 CC = g++
 CFLAGS = -Wall -std=c++20
-LDFLAGS = -lGL -lGLU -lglut
+LDFLAGS = -lGL -lGLU -lglut -lglfw -lGLEW  -lassimp
 
 TARGET = main
 SOURCES = src/main.cc
