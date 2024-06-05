@@ -1,5 +1,6 @@
 #include <vector>
 #include <cmath>
+#include <iostream>
 #include "types.hpp"
 #include <glm/glm.hpp>
 
@@ -28,7 +29,7 @@ public:
 
     void updateForce(Object &obj, float timestep)
     {
-        obj.force += glm::vec3(0.0f, obj.mass * gravity, 0.0f);
+        obj.forceAccum += glm::vec3(0.0f, obj.mass * gravity, 0.0f);
     }
 
     // bool operator==(ForceGenerator &fg)
@@ -150,13 +151,13 @@ public:
         // we can try to make it inclined though
         if (obj.velocity.y < 0)
         {
-            obj.force += glm::vec3(0.0f, 0.0f, obj.mass * 1.1f);
+            obj.forceAccum += glm::vec3(0.0f, 0.0f, obj.mass * 1.1f);
         }
         else
         {
-            obj.force += glm::vec3(obj.mass * 1.1f, 0.0f, 0.0f);
+            obj.forceAccum += glm::vec3(obj.mass * 1.1f, 0.0f, 0.0f);
         }
-        obj.force += glm::vec3(0.0f, obj.mass * -gravity * k, 0.0f);
+        obj.forceAccum += glm::vec3(0.0f, obj.mass * -gravity * k, 0.0f);
     }
 };
 
@@ -164,12 +165,14 @@ public:
 class PSpring: public ForceGenerator
 {
 protected:
-    Object &other;
+    Object *other;
     float k; //spring constant
     float l; // resting length
+    glm::vec3 connectionPoint;
+    glm::vec3 otherConnectionPoint;
 
 public:
-    PSpring(Object &other, float k, float l)
+    PSpring(Object *other, float k, float l)
     {
         this->k = k;
         this->l = l;
@@ -178,23 +181,31 @@ public:
     void updateForce(Object &obj, float timestep)
     {
         // glm::vec3 force = glm::vec3(obj.position.x, obj.position.y , obj.position.z);
-        glm::vec3 force = obj.position - other.position;
-        float magnitude = glm::length(force); 
-        magnitude = abs(magnitude - l) * k;
-        force = glm::normalize(force) * -magnitude; 
-        obj.applyForce(force);
+        if(other != nullptr) {
+
+            glm::vec3 lws = obj.getPointInWorldSpace(connectionPoint);
+            glm::vec3 ows = other->getPointInWorldSpace(otherConnectionPoint);
+
+            glm::vec3 force = lws - ows;
+            float magnitude = glm::length(force); 
+            magnitude = abs(magnitude - l) * k;
+            force = glm::normalize(force) * -magnitude; 
+            obj.applyForceAtPoint(force, lws);
+        } else {
+            std::cout << "Ref otehr in PSpring has been dropped \n ";
+        }
     }
 };
 
 class PBungee: public ForceGenerator
 {
 protected:
-    Object &other;
+    Object *other;
     float k; //spring constant
     float l; // resting length
 
 public:
-    PBungee(Object &other, float k, float l)
+    PBungee(Object* other, float k, float l)
     {
         this->k = k;
         this->l = l;
@@ -202,16 +213,19 @@ public:
     }
     void updateForce(Object &obj, float timestep)
     {
+     
         // glm::vec3 force = glm::vec3(obj.position.x, obj.position.y , obj.position.z);
-        glm::vec3 force =  obj.position - other.position;
-        float magnitude = glm::length(force); 
-    
-        //check bungee compressed
-        if (magnitude <= l) return;
+        if (other != nullptr){
+            glm::vec3 force =  obj.position - other->position;
+            float magnitude = glm::length(force); 
+        
+            //check bungee compressed
+            if (magnitude <= l) return;
 
-        magnitude = (l - magnitude) * k;
-        force = glm::normalize(force) * -magnitude; 
-        obj.applyForce(force);
+            magnitude = (l - magnitude) * k;
+            force = glm::normalize(force) * -magnitude; 
+            obj.applyForce(force);
+        }
     }
 };
 class PBuoyancy: public ForceGenerator
