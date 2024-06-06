@@ -1,3 +1,4 @@
+#include "obj_loader.hpp"
 #include <GL/freeglut.h>
 // #include <GL/glut.h>
 #include <algorithm>
@@ -9,7 +10,7 @@
 
 #include "environment.hpp"
 #include "object.hpp"
-#include "physics.cc"
+#include "physics.hpp"
 #include "render_utils.hpp"
 #include "types.hpp"
 
@@ -150,6 +151,8 @@ void loop(int value) {
               << obj->forceAccum.z << std::endl;
     obj->updatePhysics(timeStep);
   }
+  loader_loop();
+
   glutPostRedisplay();
   glutTimerFunc(16, loop, 0);
 }
@@ -185,6 +188,8 @@ void init() {
     fr.add(*obj, fplane_force);
   }
   fr.add(*(env.objects.at(0)), prop);
+
+  loader_init();
 }
 
 int main(int argc, char **argv) {

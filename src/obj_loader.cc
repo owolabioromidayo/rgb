@@ -1,12 +1,18 @@
-
 // Heavily adapted from
 // https://github.com/assimp/assimp/blob/master/samples/SimpleTexturedOpenGL/SimpleTexturedOpenGL/src/model_loading.cpp
 
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
-#include <assimp/Importer.hpp>
-#include <assimp/postprocess.h>
-#include <assimp/scene.h>
+#include "obj_loader.hpp"
+
+#ifndef STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
+#include "../lib/stb_image/stb_image.h"
+#endif
+
+#ifndef STB_IMAGE_WRITE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "../lib/stb_image/stb_image_write.h"
+#endif
+
 #include <fstream>
 #include <glm/ext.hpp>
 #include <glm/glm.hpp>
@@ -15,11 +21,6 @@
 #include <map>
 #include <sstream>
 #include <vector>
-
-#define STB_IMAGE_IMPLEMENTATION
-#include "../lib/stb_image/stb_image.h"
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "../lib/stb_image/stb_image_write.h"
 
 static std::string modelpath = "./test/models/tree/Tree.obj";
 
@@ -149,6 +150,9 @@ int LoadGLTextures(const aiScene *scene) {
       glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
       glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
       stbi_image_free(data);
+
+      std::cout << "texture count: " << numTextures << "\n";
+
     } else {
       std::cerr << "Couldnt load image " << fileloc << "\n";
       return -1;
@@ -459,28 +463,7 @@ std::string readShaderFromFile(const std::string &filename) {
   return buffer.str();
 }
 
-int main() {
-  if (!glfwInit()) {
-    std::cerr << "Failed to initialize GLFW" << std::endl;
-    return -1;
-  }
-
-  GLFWwindow *window =
-      glfwCreateWindow(1000, 800, "OBJ Viewer", nullptr, nullptr);
-  if (!window) {
-    std::cerr << "Failed to create GLFW window" << std::endl;
-    glfwTerminate();
-    return -1;
-  }
-
-  glfwMakeContextCurrent(window);
-
-  if (glewInit() != GLEW_OK) {
-    std::cerr << "Failed to initialize GLEW" << std::endl;
-    glfwTerminate();
-    return -1;
-  }
-
+int loader_init() {
   if (!load_scene(modelpath)) {
     std::cerr << "Failed to load object file" << std::endl;
     return -1;
@@ -528,63 +511,102 @@ int main() {
   glLightfv(GL_LIGHT1, GL_POSITION, LightPosition);
   glEnable(GL_LIGHT1);
 
-  while (!glfwWindowShouldClose(window)) {
+  glEnable(GL_TEXTURE_2D);
 
-    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT |
-            GL_DEPTH_BUFFER_BIT); // Clear The Screen And The Depth Buffer
-
-    // Set up projection matrix
-    float aspectRatio =
-        (float)1000 / (float)800; // Assuming window size of 800x600
-    float fov = 90.0f;
-    float nearPlane = 0.1f;
-    float farPlane = 100.0f;
-
-    float projectionMatrix[16];
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective(fov, aspectRatio, nearPlane, farPlane);
-    glGetFloatv(GL_PROJECTION_MATRIX, projectionMatrix);
-    // glUniformMatrix4fv(projectionMatrixLoc, 1, GL_FALSE, projectionMatrix);
-
-    // Set up view matrix
-    float viewMatrix[16];
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    gluLookAt(0.0f, 0.0f, 0.0f,  // Camera position
-              0.0f, 0.0f, 0.0f,  // Look-at point
-              0.0f, 1.0f, 0.0f); // Up vector
-    // gluLookAt(10.0f, -400.0f, -40.0f, // Camera position
-    //           0.0f, 0.0f, 0.0f,       // Look-at point
-    //           0.0f, 1.0f, 0.0f);      // Up vector
-    glGetFloatv(GL_MODELVIEW_MATRIX, viewMatrix);
-    // glUniformMatrix4fv(viewMatrixLoc, 1, GL_FALSE, viewMatrix);
-
-    // Set up model matrix
-    float modelMatrix[16];
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    glTranslatef(0.0f, 0.0f, -1.0f); // Move the object along the -z axis
-    glRotatef(45.0f, 0.0f, 1.0f,
-              0.0f); // Rotate the object by 45 degrees around the y-axis
-    glGetFloatv(GL_MODELVIEW_MATRIX, modelMatrix);
-    // glUniformMatrix4fv(modelMatrixLoc, 1, GL_FALSE, modelMatrix);
-
-    // glTranslatef(0.0f, 5.0f, 5.0f); // Move 40 Units And Into The Scree
-    // glRotatef(xrot, 1.0f, 0.0f, 0.0f);
-    // glRotatef(yrot, 0.0f, 1.0f, 0.0f);
-    // glRotatef(zrot, 0.0f, 0.0f, 1.0f);
-
-    recursive_render(g_scene, g_scene->mRootNode, 0.5);
-
-    // yrot += 0.2f;
-
-    glfwSwapBuffers(window);
-    glfwPollEvents();
-  }
-  // glDeleteProgram(shaderProgram);
-
-  glfwTerminate();
   return 0;
 }
+
+int loader_loop() {
+
+  glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+  glClear(GL_COLOR_BUFFER_BIT |
+          GL_DEPTH_BUFFER_BIT); // Clear The Screen And The Depth Buffer
+
+  // Set up projection matrix
+  float aspectRatio =
+      (float)1000 / (float)800; // Assuming window size of 800x600
+  float fov = 90.0f;
+  float nearPlane = 0.1f;
+  float farPlane = 100.0f;
+
+  float projectionMatrix[16];
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  gluPerspective(fov, aspectRatio, nearPlane, farPlane);
+  glGetFloatv(GL_PROJECTION_MATRIX, projectionMatrix);
+  // glUniformMatrix4fv(projectionMatrixLoc, 1, GL_FALSE, projectionMatrix);
+
+  // Set up view matrix
+  float viewMatrix[16];
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+  gluLookAt(0.0f, 0.0f, 0.0f,  // Camera position
+            0.0f, 0.0f, 0.0f,  // Look-at point
+            0.0f, 1.0f, 0.0f); // Up vector
+  // gluLookAt(10.0f, -400.0f, -40.0f, // Camera position
+  //           0.0f, 0.0f, 0.0f,       // Look-at point
+  //           0.0f, 1.0f, 0.0f);      // Up vector
+  glGetFloatv(GL_MODELVIEW_MATRIX, viewMatrix);
+  // glUniformMatrix4fv(viewMatrixLoc, 1, GL_FALSE, viewMatrix);
+
+  // Set up model matrix
+  float modelMatrix[16];
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+  glTranslatef(0.0f, 0.0f, -1.0f); // Move the object along the -z axis
+  glRotatef(45.0f, 0.0f, 1.0f,
+            0.0f); // Rotate the object by 45 degrees around the y-axis
+  glGetFloatv(GL_MODELVIEW_MATRIX, modelMatrix);
+  // glUniformMatrix4fv(modelMatrixLoc, 1, GL_FALSE, modelMatrix);
+
+  // glTranslatef(0.0f, 5.0f, 5.0f); // Move 40 Units And Into The Scree
+  // glRotatef(xrot, 1.0f, 0.0f, 0.0f);
+  // glRotatef(yrot, 0.0f, 1.0f, 0.0f);
+  // glRotatef(zrot, 0.0f, 0.0f, 1.0f);
+
+  recursive_render(g_scene, g_scene->mRootNode, 0.5);
+}
+
+// int maino() {
+//   if (!glfwInit()) {
+//     std::cerr << "Failed to initialize GLFW" << std::endl;
+//     return -1;
+//   }
+
+//   GLFWwindow *window =
+//       glfwCreateWindow(1000, 800, "OBJ Viewer", nullptr, nullptr);
+//   if (!window) {
+//     std::cerr << "Failed to create GLFW window" << std::endl;
+//     glfwTerminate();
+//     return -1;
+//   }
+
+//   glfwMakeContextCurrent(window);
+
+//   if (glewInit() != GLEW_OK) {
+//     std::cerr << "Failed to initialize GLEW" << std::endl;
+//     glfwTerminate();
+//     return -1;
+//   }
+
+//   if (!load_scene(modelpath)) {
+//     std::cerr << "Failed to load object file" << std::endl;
+//     return -1;
+//   }
+
+//   // loader_init() ;
+
+//   while (!glfwWindowShouldClose(window)) {
+
+//     // loader_loop();
+
+//     // yrot += 0.2f;
+
+//     glfwSwapBuffers(window);
+//     glfwPollEvents();
+//   }
+//   // glDeleteProgram(shaderProgram);
+
+//   glfwTerminate();
+//   return 0;
+// }

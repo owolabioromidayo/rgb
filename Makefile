@@ -4,15 +4,24 @@ CC = g++
 CFLAGS = -Wall -std=c++20
 LDFLAGS = -lGL -lGLU -lglut -lglfw -lGLEW  -lassimp
 
-TARGET = main
-SOURCES = src/main.cc
+TARGET := main
+SRC_DIR := src
+OBJ_DIR := obj
+SOURCES := $(wildcard $(SRC_DIR)/*.cc)
+OBJECTS := $(SOURCES:$(SRC_DIR)/%.cc=$(OBJ_DIR)/%.o)
 
 .PHONY: all clean
 
 all: $(TARGET)
 
-$(TARGET): $(SOURCES)
-	$(CC) $(CFLAGS) $(SOURCES) -o $(TARGET) $(LDFLAGS)
+$(TARGET): $(OBJECTS)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc | $(OBJ_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJ_DIR):
+	mkdir -p $@
 
 clean:
-	rm -f $(TARGET)
+	$(RM) -r $(OBJ_DIR) $(TARGET)
