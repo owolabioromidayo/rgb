@@ -2,12 +2,10 @@
 #define OBJ_LOADER_HPP_
 
 #include <GL/glew.h>
-// #include <GLFW/glfw3.h>
+#include <GLFW/glfw3.h>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
-
-
 
 std::string getBasePath(const std::string &path);
 

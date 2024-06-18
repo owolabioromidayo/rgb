@@ -1,6 +1,8 @@
 #include "obj_loader.hpp"
-#include <GL/freeglut.h>
+// #include <GL/freeglut.h>
 // #include <GL/glut.h>
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
 #include <algorithm>
 #include <cmath>
 #include <glm/glm.hpp>
@@ -75,7 +77,7 @@ auto grav = Gravity(-9.81f);
 auto fplane_force = PlaneCollision(0.0f);
 auto prop = Propulsion(1.03f, -9.81f);
 
-void render() {
+void render(GLFWwindow *window) {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
@@ -103,45 +105,45 @@ void render() {
     switch (obj->type) {
     case ObjectType::Sphere: {
       Sphere *sph = objectPtrTo<Sphere>(obj);
-      glutSolidSphere(sph->radius, 20, 20);
+      gluSphere(gluNewQuadric(), sph->radius, 20, 20);
     } break;
-    case ObjectType::Cube: {
-      Cube *cub = objectPtrTo<Cube>(obj);
-      glutSolidCube(cub->size * 2.0f);
-    } break;
-    case ObjectType::Cylinder: {
-      Cylinder *cyl = objectPtrTo<Cylinder>(obj);
-      glRotatef(-90.0f, 1.0f, 0.0f, 0.0f);
-      glutSolidCylinder(cyl->radius, cyl->height, 20, 20);
-    } break;
+    // case ObjectType::Cube: {
+    //   Cube* cub = objectPtrTo<Cube>(obj);
+    //   glScalef(cub->size, cub->size, cub->size);
+    //   drawCube();
+    // } break;
+    // case ObjectType::Cylinder: {
+    //   Cylinder* cyl = objectPtrTo<Cylinder>(obj);
+    //   glRotatef(-90.0f, 1.0f, 0.0f, 0.0f);
+    //   gluCylinder(gluNewQuadric(), cyl->radius, cyl->radius, cyl->height, 20,
+    //   20);
+    // } break;
     case ObjectType::Cone: {
       Cone *con = objectPtrTo<Cone>(obj);
       glRotatef(-90.0f, 1.0f, 0.0f, 0.0f);
-      glutSolidCone(con->radius, con->height, 20, 20);
+      gluCylinder(gluNewQuadric(), con->radius, 0.0, con->height, 20, 20);
     } break;
-    case ObjectType::Torus: {
-      Torus *tor = objectPtrTo<Torus>(obj);
-      glutSolidTorus(tor->radius * 0.5f, tor->thickness, 20, 20);
-    } break;
-
-    case ObjectType::Cuboid: {
-
-      Cuboid *cuboid = objectPtrTo<Cuboid>(obj);
-      glScalef(cuboid->length, cuboid->height, cuboid->width);
-      glutSolidCube(1.0f);
-    } break;
+      // case ObjectType::Torus: {
+      //   Torus* tor = objectPtrTo<Torus>(obj);
+      //   glutSolidTorus(tor->radius * 0.5f, tor->thickness, 20, 20);
+      // } break;
+      // case ObjectType::Cuboid: {
+      //   Cuboid* cuboid = objectPtrTo<Cuboid>(obj);
+      //   glScalef(cuboid->length, cuboid->height, cuboid->width);
+      //   drawCube();
+      // } break;
     }
 
     glPopMatrix();
   }
 
   updateFPS();
-  drawFPS();
+  // drawFPS();
 
-  glutSwapBuffers();
+  // glfwSwapBuffers(window);
 }
 
-void loop(int value) {
+void loop(GLFWwindow *window) {
 
   // updatePhysics(objects, 0.0f); // floorPlane is at y0 for now
   fr.updateForces(timeStep);
@@ -151,10 +153,10 @@ void loop(int value) {
               << obj->forceAccum.z << std::endl;
     obj->updatePhysics(timeStep);
   }
-  loader_loop();
+  render(window);
+  // loader_loop();
 
-  glutPostRedisplay();
-  glutTimerFunc(16, loop, 0);
+  // glutPostRedisplay();
 }
 
 void init() {
@@ -163,7 +165,7 @@ void init() {
   // Create some sample objects (very temporary)
   Sphere sphere({.position = glm::vec3(0.0f, 5.0f, 0.0f)}, 1.5f);
   Cube cube({.position = glm::vec3(10.0f, 0.0f, 0.0f)}, 2.0f);
-  Cylinder cylinder({.position = glm::vec3(20.0f, 3.0f, 0.0f)}, 1.5f, 2.0f);
+  // Cylinder cylinder({.position = glm::vec3(20.0f, 3.0f, 0.0f)}, 1.5f, 2.0f);
   Cuboid cuboid({.position = glm::vec3(-22.0f, 0.0f, 0.0f)}, 2.0, 4.0f, 6.0f);
 
   // sphere.setVelocity(glm::vec3(4.0, 0.0, 3.0));
@@ -175,7 +177,7 @@ void init() {
   // cuboid.setAccel(glm::vec3(0.0f, 0.0f, 0.0f));
   env.addObject<Sphere>(sphere);
   env.addObject<Cube>(cube);
-  env.addObject<Cylinder>(cylinder);
+  // env.addObject<Cylinder>(cylinder);
   env.addObject<Cuboid>(cuboid);
   // env.objects.push_back(std::make_unique<Sphere>(sphere));
   // env.objects.push_back(std::make_unique<Cube>(cube));
@@ -189,27 +191,52 @@ void init() {
   }
   fr.add(*(env.objects.at(0)), prop);
 
-  loader_init();
+  // loader_init();
 }
 
 int main(int argc, char **argv) {
-  glutInit(&argc, argv);
-  glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
-
-  glutInitWindowSize(1000, 800);
-  glutCreateWindow("RGB");
 
   // glutSetCursor(GLUT_CURSOR_INFO); // glove
+  if (!glfwInit()) {
+    std::cerr << "Failed to initialize GLFW" << std::endl;
+    return -1;
+  }
 
-  glutDisplayFunc(render);
-  glutReshapeFunc(reshape);
-  glutMotionFunc(motion);
-  glutKeyboardFunc(keyboard);
-  glutMouseFunc(mouseWheel);
+  GLFWwindow *window = glfwCreateWindow(1000, 800, "RGB", nullptr, nullptr);
+  if (!window) {
+    std::cerr << "Failed to create GLFW window" << std::endl;
+    glfwTerminate();
+    return -1;
+  }
 
-  glutTimerFunc(0, loop, 0);
+  glfwMakeContextCurrent(window);
+
+  if (glewInit() != GLEW_OK) {
+    std::cerr << "Failed to initialize GLEW" << std::endl;
+    glfwTerminate();
+    return -1;
+  }
+
+  // glutDisplayFunc(render);
+  // glutReshapeFunc(reshape);
+  // glutMotionFunc(motion);
+  // glutKeyboardFunc(keyboard);
+  // glutMouseFunc(mouseWheel);
+
+  glfwSetCursorPosCallback(window, motion);
+  glfwSetScrollCallback(window, mouseWheel);
+  glfwSetKeyCallback(window, keyboard);
+  glfwSetFramebufferSizeCallback(window, reshape);
 
   init();
-  glutMainLoop();
+
+  while (!glfwWindowShouldClose(window)) {
+    loop(window);
+
+    glfwSwapBuffers(window);
+    glfwPollEvents();
+  }
+
+  glfwTerminate();
   return 0;
 }

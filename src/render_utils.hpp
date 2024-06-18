@@ -1,21 +1,35 @@
 #ifndef __RENDER_UTILS__HPP_
 #define __RENDER_UTILS__HPP_
-#include <GL/glut.h>
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
 #include <algorithm>
+#include <iostream>
 #include <stdarg.h>
 #include <stdio.h>
 #include <sys/time.h>
+
+#include <ft2build.h>
+#include FT_FREETYPE_H
 
 const float tileSize = 1.0f;
 float zoomFactor = 1.0f;
 float fov = 45.0f;
 
 // CORE STUFF
-void reshape(int width, int height) {
+// void reshape(int width, int height) {
+//   glViewport(0, 0, width, height);
+//   glMatrixMode(GL_PROJECTION);
+//   glLoadIdentity();
+//   gluPerspective(fov / zoomFactor, (float)width / (float)height, 0.1, 100.0);
+// }
+
+void reshape(GLFWwindow *window, int width, int height) {
   glViewport(0, 0, width, height);
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  gluPerspective(fov / zoomFactor, (float)width / (float)height, 0.1, 100.0);
+  gluPerspective(fov / zoomFactor,
+                 static_cast<float>(width) / static_cast<float>(height), 0.1,
+                 100.0);
 }
 
 ////////////////// FPS //////////////
@@ -41,37 +55,78 @@ void updateFPS() {
   }
 }
 
-void drawText(float x, float y, void *font, const char *format, ...) {
-  va_list args;
-  va_start(args, format);
+// void drawText(float x, float y, void *font, const char *format, ...) {
+//   va_list args;
+//   va_start(args, format);
 
-  char buffer[256];
-  vsprintf(buffer, format, args);
+//   char buffer[256];
+//   vsprintf(buffer, format, args);
 
-  va_end(args);
+//   va_end(args);
+
+//   glPushMatrix();
+//   glLoadIdentity();
+//   glRasterPos2f(x, y);
+
+//   for (const char *c = buffer; *c != '\0'; ++c) {
+//     glutBitmapCharacter(font, *c);
+//   }
+
+//   glPopMatrix();
+// }
+
+// TOOD: freetype not importing rn
+void drawText(float x, float y, const char *text, int fontSize) {
+  FT_Library ft;
+  if (FT_Init_FreeType(&ft)) {
+    std::cout << "ERROR::FREETYPE: Could not init FreeType Library"
+              << std::endl;
+    return;
+  }
+
+  FT_Face face;
+  if (FT_New_Face(
+          ft, "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+          0, &face)) {
+    std::cout << "ERROR::FREETYPE: Failed to load font" << std::endl;
+    return;
+  }
+
+  FT_Set_Pixel_Sizes(face, 0, fontSize);
 
   glPushMatrix();
   glLoadIdentity();
+
   glRasterPos2f(x, y);
 
-  for (const char *c = buffer; *c != '\0'; ++c) {
-    glutBitmapCharacter(font, *c);
+  for (const char *c = text; *c; ++c) {
+    if (FT_Load_Char(face, *c, FT_LOAD_RENDER))
+      continue;
+
+    glBitmap(face->glyph->bitmap.width, face->glyph->bitmap.rows,
+             face->glyph->bitmap_left, face->glyph->bitmap_top,
+             face->glyph->advance.x / 64.0f, 0, face->glyph->bitmap.buffer);
   }
 
   glPopMatrix();
+
+  FT_Done_Face(face);
+  FT_Done_FreeType(ft);
 }
 
-void drawFPS() {
+void drawFPS(GLFWwindow *window) {
+  int width, height;
+  glfwGetFramebufferSize(window, &width, &height);
+
   glColor3f(1.0, 1.0, 1.0); // Set text color to white
   glMatrixMode(GL_PROJECTION);
   glPushMatrix();
   glLoadIdentity();
-  gluOrtho2D(0, glutGet(GLUT_WINDOW_WIDTH), 0, glutGet(GLUT_WINDOW_HEIGHT));
+  gluOrtho2D(0, width, 0, height);
   glMatrixMode(GL_MODELVIEW);
   glPushMatrix();
   glLoadIdentity();
-  drawText(10, glutGet(GLUT_WINDOW_HEIGHT) - 20, GLUT_BITMAP_HELVETICA_12,
-           "FPS: %.2f", fps);
+  drawText(10, height - 20, "FPS: %.2f", fps);
   glPopMatrix();
   glMatrixMode(GL_PROJECTION);
   glPopMatrix();
@@ -92,34 +147,58 @@ int startX = 0;
 int startY = 0;
 
 // Function to handle keyboard input for adjusting camera position
-void keyboard(unsigned char key, int x, int y) {
-  switch (key) {
-  case 's':
-    cameraY -= 0.1;
-    break;
-  case 'w':
-    cameraY += 0.1;
-    break;
-  case 'a':
-    cameraX -= 0.1;
-    break;
-  case 'd':
-    cameraX += 0.1;
-    break;
-  case 'q':
-    cameraZ -= 0.1;
-    break;
-  case 'e':
-    cameraZ += 0.1;
-    break;
+// void keyboard(unsigned char key, int x, int y) {
+//   switch (key) {
+//   case 's':
+//     cameraY -= 0.1;
+//     break;
+//   case 'w':
+//     cameraY += 0.1;
+//     break;
+//   case 'a':
+//     cameraX -= 0.1;
+//     break;
+//   case 'd':
+//     cameraX += 0.1;
+//     break;
+//   case 'q':
+//     cameraZ -= 0.1;
+//     break;
+//   case 'e':
+//     cameraZ += 0.1;
+//     break;
+//   }
+//   // glutPostRedisplay();
+// }
+void keyboard(GLFWwindow *window, int key, int scancode, int action, int mods) {
+  if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+    switch (key) {
+    case GLFW_KEY_S:
+      cameraY -= 0.1;
+      break;
+    case GLFW_KEY_W:
+      cameraY += 0.1;
+      break;
+    case GLFW_KEY_A:
+      cameraX -= 0.1;
+      break;
+    case GLFW_KEY_D:
+      cameraX += 0.1;
+      break;
+    case GLFW_KEY_Q:
+      cameraZ -= 0.1;
+      break;
+    case GLFW_KEY_E:
+      cameraZ += 0.1;
+      break;
+    }
   }
-  glutPostRedisplay();
 }
 
-void motion(int x, int y) {
+void motion(GLFWwindow *window, double x, double y) {
   // Calculate mouse movement
-  int deltaX = x - startX;
-  int deltaY = y - startY;
+  double deltaX = x - startX;
+  double deltaY = y - startY;
 
   int MAX = 2000;
 
@@ -145,12 +224,26 @@ void motion(int x, int y) {
   startX = x;
   startY = y;
 
-  glutPostRedisplay();
+  // glutPostRedisplay();
 }
 
 // zooming
-void mouseWheel(int button, int dir, int x, int y) {
-  if (dir > 0) {
+// void mouseWheel(int button, int dir, int x, int y) {
+//   if (dir > 0) {
+//     zoomFactor *= 1.2f;
+//   } else {
+//     zoomFactor *= 0.8f;
+//   }
+
+//   zoomFactor =
+//       std::max(0.1f, std::min(zoomFactor, 10.0f)); // clamp to prevent
+//       weirdness
+//   reshape(glutGet(GLUT_WINDOW_WIDTH),
+//           glutGet(GLUT_WINDOW_HEIGHT)); // Update the projection matrix
+// }
+
+void mouseWheel(GLFWwindow *window, double xoffset, double yoffset) {
+  if (yoffset > 0) {
     zoomFactor *= 1.2f;
   } else {
     zoomFactor *= 0.8f;
@@ -158,8 +251,9 @@ void mouseWheel(int button, int dir, int x, int y) {
 
   zoomFactor =
       std::max(0.1f, std::min(zoomFactor, 10.0f)); // clamp to prevent weirdness
-  reshape(glutGet(GLUT_WINDOW_WIDTH),
-          glutGet(GLUT_WINDOW_HEIGHT)); // Update the projection matrix
+  int width, height;
+  glfwGetFramebufferSize(window, &width, &height);
+  reshape(window, width, height); // Update the projection matrix
 }
 
 void renderFloorPlane(float size) {

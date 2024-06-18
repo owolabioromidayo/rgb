@@ -8,7 +8,6 @@
 #include <memory>
 #include <type_traits>
 
-
 enum class ObjectType { Sphere, Cube, Cylinder, Cone, Torus, Cuboid };
 
 // very temp, change at will!
@@ -52,7 +51,7 @@ public:
     this->type = type;
 
     // guards for this
-    this->inverseMass = 1/ mass;
+    this->inverseMass = 1 / mass;
   }
 
   void setVelocity(const glm::vec3 &vel) { this->velocity = vel; }
@@ -181,25 +180,24 @@ public:
 
   void updatePhysics(float timeStep) {
     glm::vec3 lastAccel = acceleration;
-    lastAccel += (inverseMass * forceAccum );
+    lastAccel += (inverseMass * forceAccum);
 
-    glm::vec3 angularAccel = inverseInertiaTensor * torqueAccum; 
-    
+    glm::vec3 angularAccel = inverseInertiaTensor * torqueAccum;
+
     velocity += (lastAccel * timeStep);
     rotation += (angularAccel * timeStep);
 
-    velocity *= pow(linearDamping, timeStep); 
-    rotation *= pow(angularDamping, timeStep); 
+    velocity *= pow(linearDamping, timeStep);
+    rotation *= pow(angularDamping, timeStep);
 
     position += (velocity * timeStep);
-    //conv rotation to a quaternion
+    // conv rotation to a quaternion
     glm::quat q = glm::quat(0.0f, rotation) * timeStep;
     q *= orientation;
     orientation += (q * 0.5f);
 
     calculateDerivedData();
     clearAccumulators();
-    
   }
   bool partialEq(Object &obj) {
     return mass == obj.mass && position == obj.position &&
@@ -239,20 +237,21 @@ public:
   }
 };
 
-class Cylinder : public Object {
-public:
-  float radius;
-  float height;
-  Cylinder(ObjectArgs object, float radius, float height)
-      : Object(object, ObjectType::Cylinder), radius(radius), height(height){};
-  bool operator==(Object &obj) override {
-    Cylinder &cyl = static_cast<Cylinder &>(obj);
-    if (cyl.partialEq(cyl) && cyl.radius == radius && cyl.height == height) {
-      return true;
-    }
-    return false;
-  }
-};
+// class Cylinder : public Object {
+// public:
+//   float radius;
+//   float height;
+//   Cylinder(ObjectArgs object, float radius, float height)
+//       : Object(object, ObjectType::Cylinder), radius(radius),
+//       height(height){};
+//   bool operator==(Object &obj) override {
+//     Cylinder &cyl = static_cast<Cylinder &>(obj);
+//     if (cyl.partialEq(cyl) && cyl.radius == radius && cyl.height == height) {
+//       return true;
+//     }
+//     return false;
+//   }
+// };
 
 class Cone : public Object {
 public:

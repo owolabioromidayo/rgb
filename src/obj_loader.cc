@@ -51,14 +51,14 @@ std::string vertexShaderCode;
 std::string fragmentShaderCode;
 GLuint shaderProgram;
 
-GLint modelMatrixLoc;
-GLint viewMatrixLo;
-GLint projectionMatrixLoc;
-GLint diffuseLoc;
-GLint specularLoc;
-GLint ambientLoc;
-GLint shininessLoc;
-GLint textureLoc;
+GLint modelMatrixLoc = 0;
+GLint viewMatrixLoc = 0;
+GLint projectionMatrixLoc = 0;
+GLint diffuseLoc = 0;
+GLint specularLoc = 0;
+GLint ambientLoc = 0;
+GLint shininessLoc = 0;
+GLint textureLoc = 0;
 
 std::string getBasePath(const std::string &path) {
   size_t pos = path.find_last_of("\\/");
@@ -435,6 +435,7 @@ bool load_scene(const std::string &filename) {
 
 GLuint createShaderProgram(const std::string &vertexShaderCode,
                            const std::string &fragmentShaderCode) {
+
   GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
   const char *vertexShaderCodePtr = vertexShaderCode.c_str();
   glShaderSource(vertexShader, 1, &vertexShaderCodePtr, nullptr);
@@ -476,22 +477,25 @@ int loader_init() {
     return -1;
   }
 
-  std::string vertexShaderCode = readShaderFromFile("vertex_shader.glsl");
-  std::string fragmentShaderCode = readShaderFromFile("fragment_shader.glsl");
+  std::string vertexShaderCode =
+      readShaderFromFile("./src/shaders/vertex_shader.glsl");
+  std::string fragmentShaderCode =
+      readShaderFromFile("./src/shaders/fragment_shader.glsl");
+
+  std::cout << "Loaded shader files \n";
+
   GLuint shaderProgram =
       createShaderProgram(vertexShaderCode, fragmentShaderCode);
   glUseProgram(shaderProgram);
 
-  GLint modelMatrixLoc = glGetUniformLocation(shaderProgram, "modelMatrix");
-  GLint viewMatrixLoc = glGetUniformLocation(shaderProgram, "viewMatrix");
-  GLint projectionMatrixLoc =
-      glGetUniformLocation(shaderProgram, "projectionMatrix");
-  GLint diffuseLoc = glGetUniformLocation(shaderProgram, "material.diffuse");
-  GLint specularLoc = glGetUniformLocation(shaderProgram, "material.specular");
-  GLint ambientLoc = glGetUniformLocation(shaderProgram, "material.ambient");
-  GLint shininessLoc =
-      glGetUniformLocation(shaderProgram, "material.shininess");
-  GLint textureLoc = glGetUniformLocation(shaderProgram, "textureMap");
+  modelMatrixLoc = glGetUniformLocation(shaderProgram, "modelMatrix");
+  viewMatrixLoc = glGetUniformLocation(shaderProgram, "viewMatrix");
+  projectionMatrixLoc = glGetUniformLocation(shaderProgram, "projectionMatrix");
+  diffuseLoc = glGetUniformLocation(shaderProgram, "material.diffuse");
+  specularLoc = glGetUniformLocation(shaderProgram, "material.specular");
+  ambientLoc = glGetUniformLocation(shaderProgram, "material.ambient");
+  shininessLoc = glGetUniformLocation(shaderProgram, "material.shininess");
+  textureLoc = glGetUniformLocation(shaderProgram, "textureMap");
 
   glShadeModel(GL_SMOOTH); // Enables Smooth Shading
   glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
@@ -512,6 +516,8 @@ int loader_init() {
   glEnable(GL_LIGHT1);
 
   glEnable(GL_TEXTURE_2D);
+
+  std::cout << "Loader initialized \n";
 
   return 0;
 }
@@ -566,47 +572,3 @@ int loader_loop() {
 
   recursive_render(g_scene, g_scene->mRootNode, 0.5);
 }
-
-// int maino() {
-//   if (!glfwInit()) {
-//     std::cerr << "Failed to initialize GLFW" << std::endl;
-//     return -1;
-//   }
-
-//   GLFWwindow *window =
-//       glfwCreateWindow(1000, 800, "OBJ Viewer", nullptr, nullptr);
-//   if (!window) {
-//     std::cerr << "Failed to create GLFW window" << std::endl;
-//     glfwTerminate();
-//     return -1;
-//   }
-
-//   glfwMakeContextCurrent(window);
-
-//   if (glewInit() != GLEW_OK) {
-//     std::cerr << "Failed to initialize GLEW" << std::endl;
-//     glfwTerminate();
-//     return -1;
-//   }
-
-//   if (!load_scene(modelpath)) {
-//     std::cerr << "Failed to load object file" << std::endl;
-//     return -1;
-//   }
-
-//   // loader_init() ;
-
-//   while (!glfwWindowShouldClose(window)) {
-
-//     // loader_loop();
-
-//     // yrot += 0.2f;
-
-//     glfwSwapBuffers(window);
-//     glfwPollEvents();
-//   }
-//   // glDeleteProgram(shaderProgram);
-
-//   glfwTerminate();
-//   return 0;
-// }
